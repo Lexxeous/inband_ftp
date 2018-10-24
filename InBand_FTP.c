@@ -176,13 +176,10 @@ int run_server(int port)
 			// isolate user commands
 			if((strcmp(user_cmd, "help") && strcmp(user_cmd, "quit"))) // skip if user sent "help" or "quit"
 			{
-				if(user_cmd[4] == ':') // skip if user command does not contain a protocol message
-				{
-					memcpy(protocol_msg, user_cmd, 5);
-					printf("protocol_msg = %s\n", protocol_msg); // PMSG:
-					memcpy(f_name, user_cmd + 5, GLOB_BUF_LEN-5);
-					printf("f_name = %s\n\n", f_name); // filename.txt
-				}
+				memcpy(protocol_msg, user_cmd, 5);
+				printf("protocol_msg = %s\n", protocol_msg); // PMSG:
+				memcpy(f_name, user_cmd + 5, GLOB_BUF_LEN-5);
+				printf("f_name = %s\n", f_name); // filename.txt
 			}
 
 			if(!strcmp(user_cmd, "help")) // if client sends "help"
@@ -230,7 +227,7 @@ int run_server(int port)
 				{
 					memcpy(protocol_resp, "CTS:", 4);
 					strcat(protocol_resp, f_name);
-					printf("%s\n", protocol_resp);
+					printf("%s\n\n", protocol_resp);
 					sendMessage(&con, protocol_resp);
 				}
 				else // "f_name" already exists in "server_dir"

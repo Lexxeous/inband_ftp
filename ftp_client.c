@@ -15,7 +15,6 @@ int main(int argc, char* argv[])
 
   char* server_name = argv[1];
   int server_port = atoi(argv[2]); // ASCII to integer
-  int buff_len;
 
   ConnectionInfo info;
   if(connect_to_server(server_name, server_port, &info))
@@ -28,10 +27,15 @@ int main(int argc, char* argv[])
 
   bool closed = false;
 
-
   while(!closed)
   {
     bool valid_terminal_in = false; //assume the user terminal input is invalid
+    bool chk0 = false;
+    bool chk1 = false;
+    bool chk2 = false;
+    bool chk3 = false;
+
+    int buff_len;
 
     char buff[CLI_BUF_LEN]; // user terminal input
     memset(buff, '\0', CLI_BUF_LEN); // clear the terminal input buffer
@@ -81,7 +85,25 @@ int main(int argc, char* argv[])
     }
     else
     {
-      if(!strcmp(buff, "put") || !strcmp(buff, "get")) // if explicitly "get" or "put"
+      // as long as the indexes exist, check each index up to buff[3]
+      if ((buff_len - 1) > 0)
+        chk0 = ((buff[0] == 'p') || (buff[0] == 'g'));
+      if ((buff_len - 1) > 1)
+        chk1 = ((buff[1] == 'u') || (buff[1] == 'e'));
+      if ((buff_len - 1) > 2)
+        chk2 = (buff[2] == 't');
+      if ((buff_len - 1) > 3)
+        chk3 = (buff[3] == ' ');
+
+
+      if((buff_len - 1) < 3) //garbage less than 3 characters
+      {
+        valid_terminal_in = false;
+        printf("ERR:400 bad request, FTP command too short.\n");
+        printf("Type \"help\" for the list of FTP commands.\n");
+        continue;
+      }
+      else if(!strcmp(buff, "put") || !strcmp(buff, "get")) // if explicitly "get" or "put"
       {
         if(!strcmp(buff, "put"))
         {
@@ -111,7 +133,13 @@ int main(int argc, char* argv[])
           continue;
         }
       }
-      else if(buff_len >= 4 && buff[3] != ' ') // no space provided after "get" or "put"
+      else if((strstr(buff, "put ") == NULL) && (strstr(buff, "get ") == NULL))
+      {
+        valid_terminal_in = false;
+        printf("ERR:403 forbidden, improper command format.\n");
+        continue;
+      }
+      else if(!(chk0 && chk1 && chk2 && chk3)) // must start explicitly with "get " or "put "
       {
         valid_terminal_in = false;
         printf("ERR:403 forbidden, improper command format.\n");
@@ -135,7 +163,6 @@ int main(int argc, char* argv[])
 
       if(!strcmp(ftp_cmd, "put"))
       {
-        printf("CLIENT WANTS TO PUT\n");
         memcpy(protocol_msg, "STOR:", 5); // protocol_msg = "STOR:"
         strcpy(user_cmd, protocol_msg); // prepend "STOR:"
         strcat(user_cmd, f_name); // append <filename>
@@ -143,7 +170,6 @@ int main(int argc, char* argv[])
       }
       else if (!strcmp(ftp_cmd, "get"))
       {
-        printf("CLIENT WANTS TO PUT\n");
         memcpy(protocol_msg, "RETV:", 5); // protocol_msg = "RETV:"
         strcpy(user_cmd, protocol_msg); // prepend "RETV:"
         strcat(user_cmd, f_name); // append <filename>
@@ -162,7 +188,6 @@ int main(int argc, char* argv[])
       printf("Failed to receive message.\n");
       return 1;
     }
-    printf("%s\n", serv_resp); // print the server response message
     deallocate_message(serv_resp); // free (deallocate) message memory
     deallocate_message(ftp_cmd);
   }
