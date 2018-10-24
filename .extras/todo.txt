@@ -1,1 +1,37 @@
-on server side change "msg" to "user_cmd"
+help works :)
+
+quit works :)
+
+
+
+MAKE THE USER TYPE A SPACE AFTER A PUT OR GET COMMAND
+
+put 							ERR:400 bad request, improper command format and filename not included for storage.
+putfilename.ext 	ERR:403 forbidden, improper command format.
+put\s							ERR:400 bad request, filename not included for storage.
+put filename.ext
+
+
+get 							ERR:400 badrequest, improper command format and filename not included for retrieval.
+getfilename.ext 	ERR:403 forbidden, improper command format.
+get\s							ERR:400 badrequest, filename not included for retrieval.
+get filename.ext 	
+
+
+
+
+
+Get ERR:XXX codes in order...
+
+ERR:304 filename not included for storage.
+ERR:305 filename not included for retrieval.
+ERR:404 file does not exist in local directory.
+ERR:404 file does not exist in remote directory.
+ERR:409 conflict, file already exists in remote directory
+ERR:999 connection info is empty.
+
+
+
+
+400 is bad request ;  could not be understood
+403 is forbidden ; could be understood but not accepted

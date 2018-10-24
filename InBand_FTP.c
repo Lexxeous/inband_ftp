@@ -159,10 +159,10 @@ int run_server(int port)
 			char* f_name = (char*)malloc(GLOB_BUF_LEN); // file name buffer ; filename.ext
 			memset(f_name, '\0', GLOB_BUF_LEN); // clear the "f_name" buffer
 
-			char* f_content = (char*)malloc(GLOB_BUF_LEN); // file content buffer
+			char* f_content = (char*)malloc(GLOB_FILE_LEN); // file content buffer
 			memset(f_content, '\0', GLOB_FILE_LEN); // clear the file content buffer
 
-			FILE* infile;
+			FILE* serv_file;
 
 			// set up ConnectionInfo structure for the server
 			con.socket = newsockfd;
@@ -172,11 +172,18 @@ int run_server(int port)
 
 			user_cmd = receiveMessage(&con);
 			printf("user_cmd = %s\n", user_cmd); // PMSG:filename.ext
-			memcpy(protocol_msg, user_cmd, 5);
-			printf("protocol_msg = %s\n", protocol_msg); // PMSG:
-			memcpy(f_name, user_cmd + 5, GLOB_BUF_LEN-5);
-			printf("f_name = %s\n\n", f_name); // filename.txt
 
+			// isolate user commands
+			if((strcmp(user_cmd, "help") && strcmp(user_cmd, "quit"))) // skip if user sent "help" or "quit"
+			{
+				if(user_cmd[4] == ':') // skip if user command does not contain a protocol message
+				{
+					memcpy(protocol_msg, user_cmd, 5);
+					printf("protocol_msg = %s\n", protocol_msg); // PMSG:
+					memcpy(f_name, user_cmd + 5, GLOB_BUF_LEN-5);
+					printf("f_name = %s\n\n", f_name); // filename.txt
+				}
+			}
 
 			if(!strcmp(user_cmd, "help")) // if client sends "help"
 			{
@@ -184,18 +191,24 @@ int run_server(int port)
 			}
 			else if(!strcmp(user_cmd, "quit")) // if client sends "quit" command
 			{
-				close(newsockfd);
+				sendMessage(&con, "Closing client connection...\n");
 				closed = true;
+				close(newsockfd);
+			}
+			else if(!strcmp(user_cmd, "no_file_in_cli_dir"))
+			{
+				printf("...failed STOR.\n\n");
+				sendMessage(&con, "ERR:404 file does not exist in local directory.");
 			}
 			else if(!strcmp(user_cmd, "STOR:")) // if client sends "put" without filename
 			{
 				printf("...failed STOR.\n\n");
-				sendMessage(&con, "ERR:304 filename not included for storage.");
+				sendMessage(&con, "ERR:XXX");
 			}
 			else if(!strcmp(user_cmd, "RETV:")) // if client sends "get" without filename
 			{
 				printf("...failed RETV.\n\n");
-				sendMessage(&con, "ERR:305 filename not included for retrieval.");
+				sendMessage(&con, "ERR:XXX");
 			}
 			else if(!strcmp(protocol_msg, "RETV:")) // if client sends "get <filename>" command
 			{
@@ -213,7 +226,7 @@ int run_server(int port)
 			}
 			else if(!strcmp(protocol_msg, "STOR:")) // if client sends "put <filename>" command
 			{
-				if((infile = fopen(f_name, "r")) == NULL) // if "f_name" does not exist in "server_dir"
+				if((serv_file = fopen(f_name, "r")) == NULL) // if "f_name" does not exist in "server_dir"
 				{
 					memcpy(protocol_resp, "CTS:", 4);
 					strcat(protocol_resp, f_name);
