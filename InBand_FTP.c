@@ -159,12 +159,10 @@ int run_server(int port)
 			char* f_name = (char*)malloc(GLOB_BUF_LEN); // file name buffer ; filename.ext
 			memset(f_name, '\0', GLOB_BUF_LEN); // clear the "f_name" buffer
 
-			char* f_path = (char*)malloc(GLOB_BUF_LEN); // file path buffer ; "path_dir/filname.ext"
-			memset(f_path, '\0', GLOB_BUF_LEN); // clear the "f_path" buffer
-
 			char* f_content = (char*)malloc(GLOB_BUF_LEN); // file content buffer
 			memset(f_content, '\0', GLOB_FILE_LEN); // clear the file content buffer
 
+			FILE* infile;
 
 			// set up ConnectionInfo structure for the server
 			con.socket = newsockfd;
@@ -215,17 +213,16 @@ int run_server(int port)
 			}
 			else if(!strcmp(protocol_msg, "STOR:")) // if client sends "put <filename>" command
 			{
-				memcpy(f_path, "server_dir/", 11);
-				strcat(f_path, f_name);
-				printf("%s\n", f_path);
-				if(access(f_path, F_OK) == 0) // if "f_name" already exists in "server_dir"
-					sendMessage(&con, "ERR:409 conflict, file already exists in remote directory");
-				else
+				if((infile = fopen(f_name, "r")) == NULL) // if "f_name" does not exist in "server_dir"
 				{
 					memcpy(protocol_resp, "CTS:", 4);
 					strcat(protocol_resp, f_name);
 					printf("%s\n", protocol_resp);
 					sendMessage(&con, protocol_resp);
+				}
+				else // "f_name" already exists in "server_dir"
+				{
+					sendMessage(&con, "ERR:409 conflict, file already exists in remote directory");
 				}
 			}
 			else
@@ -237,7 +234,6 @@ int run_server(int port)
 			deallocate_message(protocol_msg);
 			deallocate_message(protocol_resp);
 			deallocate_message(f_name);
-			deallocate_message(f_path);
 			deallocate_message(f_content);
 		}
 	}
