@@ -170,55 +170,42 @@ int run_server(int port)
 			con.buf_length = GLOB_BUF_LEN;
 
 
+			// "quit", "STOR:<filename>", "RETV:<filename>"
 			user_cmd = receiveMessage(&con);
-			printf("user_cmd = %s\n", user_cmd); // PMSG:filename.ext
+			printf("user_cmd = %s\n", user_cmd);
 
-			// isolate user commands
-			if((strcmp(user_cmd, "help") && strcmp(user_cmd, "quit"))) // skip if user sent "help" or "quit"
+
+			// separate user commands
+			if(strcmp(user_cmd, "quit")) // skip if user sent "quit"
 			{
-				memcpy(protocol_msg, user_cmd, 5);
+				memcpy(protocol_msg, user_cmd, 5); // protocol_msg = "PMSG:"
 				printf("protocol_msg = %s\n", protocol_msg); // PMSG:
-				memcpy(f_name, user_cmd + 5, GLOB_BUF_LEN-5);
-				printf("f_name = %s\n", f_name); // filename.txt
+				memcpy(f_name, user_cmd + 5, GLOB_BUF_LEN-5); // f_name = "<filename>"
+				printf("f_name = %s\n", f_name); // <filename>
 			}
 
-			if(!strcmp(user_cmd, "help")) // if client sends "help"
+
+			if(!strcmp(user_cmd, "quit")) // if client sends "quit" command
 			{
-				sendMessage(&con, "The avaliable FTP commands are: quit, get <filename>, & put <filename>.\n");
-			}
-			else if(!strcmp(user_cmd, "quit")) // if client sends "quit" command
-			{
-				sendMessage(&con, "Closing client connection...\n");
+				printf("Closing client connection...\n");
 				closed = true;
 				close(newsockfd);
-			}
-			else if(!strcmp(user_cmd, "no_file_in_cli_dir"))
-			{
-				printf("...failed STOR.\n\n");
-				sendMessage(&con, "ERR:404 file does not exist in local directory.");
-			}
-			else if(!strcmp(user_cmd, "STOR:")) // if client sends "put" without filename
-			{
-				printf("...failed STOR.\n\n");
-				sendMessage(&con, "ERR:XXX");
-			}
-			else if(!strcmp(user_cmd, "RETV:")) // if client sends "get" without filename
-			{
-				printf("...failed RETV.\n\n");
-				sendMessage(&con, "ERR:XXX");
 			}
 			else if(!strcmp(protocol_msg, "RETV:")) // if client sends "get <filename>" command
 			{
 				// // if "f_name" exists in "server_dir"
 				// memcpy(protocol_resp, "CONT:", 5);
+
 				// // get the file size in bytes (f_byte_len)
 				// strcat(protocol_resp, (char*)f_byte_len);
 				// strcat(protocol_resp, ":");
+
 				// // get content of file in ASCII (f_content)
 				// strcat(protocol_resp, f_content);
 				// printf("%s\n", protocol_resp);
 				// sendMessage(&con, protocol_resp);
 				// // else
+
 				// sendMessage(&con, "ERR:404 file does not exist in remote directory.");
 			}
 			else if(!strcmp(protocol_msg, "STOR:")) // if client sends "put <filename>" command

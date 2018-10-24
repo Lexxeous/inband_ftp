@@ -3,6 +3,7 @@
 const int CLI_BUF_LEN = 512; // global variable to allocate different amounts of chars
 const int FTP_CMD_LEN = 3; //
 const int NO_CLI_BUF_OV = 5; // prevent overflow when appending filename
+const int CTS_OR_ERR_LEN = 4;
 
 int main(int argc, char* argv[])
 {
@@ -30,6 +31,7 @@ int main(int argc, char* argv[])
   while(!closed)
   {
     bool valid_terminal_in = false; //assume the user terminal input is invalid
+    bool print_serv_resp = false;
     bool chk0 = false;
     bool chk1 = false;
     bool chk2 = false;
@@ -52,6 +54,9 @@ int main(int argc, char* argv[])
     char* ftp_cmd = (char*)malloc(FTP_CMD_LEN); // ftp command buffer ; "get" or "put"
     memset(ftp_cmd, '\0', FTP_CMD_LEN); // clear the file content buffer
 
+    char* cts_or_err = (char*)malloc(CTS_OR_ERR_LEN); // "CTS:" or "ERR:"
+    memset(cts_or_err, '\0', CTS_OR_ERR_LEN); // clear the file content buffer
+
     FILE* cli_file;
 
 
@@ -73,15 +78,18 @@ int main(int argc, char* argv[])
     }
 
 
-    // check for "quit" and isolate inputs
+    // check for "quit" and sift through inputs
     if(!strcmp(buff, "quit"))
     {
-      valid_terminal_in = true; // "quit" is valid user terminal input
       closed = true; // closed the client connection
+      sendMessage(&info, "quit");
+      printf("\n");
+      continue;
     }
     else if (!strcmp(buff, "help"))
     {
-      valid_terminal_in = true; // "help" is a valid user terminal input
+      printf("The avaliable FTP commands are: quit, get <filename>, & put <filename>.\n");
+      continue;
     }
     else
     {
@@ -98,7 +106,6 @@ int main(int argc, char* argv[])
 
       if((buff_len - 1) < 3) //garbage less than 3 characters
       {
-        valid_terminal_in = false;
         printf("ERR:400 bad request, FTP command too short.\n");
         printf("Type \"help\" for the list of FTP commands.\n");
         continue;
@@ -107,13 +114,11 @@ int main(int argc, char* argv[])
       {
         if(!strcmp(buff, "put"))
         {
-          valid_terminal_in = false;
           printf("ERR:400 bad request, improper command format and filename not included for storage.\n");
           continue;
         }
         else
         {
-          valid_terminal_in = false;
           printf("ERR:400 bad request, improper command format and filename not included for retrieval.\n");
           continue;
         }
@@ -122,26 +127,22 @@ int main(int argc, char* argv[])
       {
         if(!strcmp(buff, "put "))
         {
-          valid_terminal_in = false;
           printf("ERR:400 bad request, filename not included for storage.\n");
           continue;
         }
         else
         {
-          valid_terminal_in = false;
           printf("ERR:400 bad request, filename not included for retrieval.\n");
           continue;
         }
       }
       else if((strstr(buff, "put ") == NULL) && (strstr(buff, "get ") == NULL))
       {
-        valid_terminal_in = false;
         printf("ERR:403 forbidden, improper command format.\n");
         continue;
       }
       else if(!(chk0 && chk1 && chk2 && chk3)) // must start explicitly with "get " or "put "
       {
-        valid_terminal_in = false;
         printf("ERR:403 forbidden, improper command format.\n");
         continue;
       }
@@ -159,14 +160,22 @@ int main(int argc, char* argv[])
     // compare the contents of ftp_cmd only if valid terminal input
     if(valid_terminal_in)
     {
-      printf("Valid terminal input...\n");
-
       if(!strcmp(ftp_cmd, "put"))
       {
-        memcpy(protocol_msg, "STOR:", 5); // protocol_msg = "STOR:"
-        strcpy(user_cmd, protocol_msg); // prepend "STOR:"
-        strcat(user_cmd, f_name); // append <filename>
-        sendMessage(&info, user_cmd); // send STOR:<filename> to server
+        if((cli_file = fopen(f_name, "r")) == NULL) // if "f_name" does not exist in "client_dir"
+        {
+          printf("ERR:404 %s does not exist in the local client directory.\n", f_name);
+          deallocate_message(ftp_cmd);
+          continue;
+        }
+        else
+        {
+          print_serv_resp = true;
+          memcpy(protocol_msg, "STOR:", 5); // protocol_msg = "STOR:"
+          strcpy(user_cmd, protocol_msg); // prepend "STOR:"
+          strcat(user_cmd, f_name); // append <filename>
+          sendMessage(&info, user_cmd); // send STOR:<filename> to server
+        }
       }
       else if (!strcmp(ftp_cmd, "get"))
       {
@@ -181,6 +190,7 @@ int main(int argc, char* argv[])
       }
     }
 
+
     // receive the server response
     char* serv_resp = receiveMessage(&info);
     if(serv_resp == NULL)
@@ -188,8 +198,25 @@ int main(int argc, char* argv[])
       printf("Failed to receive message.\n");
       return 1;
     }
-    deallocate_message(serv_resp); // free (deallocate) message memory
+    // if(print_serv_resp)
+    printf("%s\n", serv_resp);
+
+
+    memcpy(cts_or_err, serv_resp, CTS_OR_ERR_LEN);
+    printf("%s\n", cts_or_err);
+    if(!strcmp(cts_or_err, "CTS:"))
+    {
+      printf("CLI GOT CTS: FROM SERVER\n");
+    }
+    else
+    {
+      printf("CLI GOT ERR: FROM SERVER\n");
+    }
+
+
+    deallocate_message(serv_resp);
     deallocate_message(ftp_cmd);
+    deallocate_message(cts_or_err);
   }
 
   return 0;
