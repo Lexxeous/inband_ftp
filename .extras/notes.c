@@ -40,7 +40,12 @@ printf("HERE9\n");
 
 
 
-if((cli_file = fopen(f_name, "r")) == NULL) // if "f_name" does not exist in "client_dir"
-{
-  sendMessage(&info, "no_file_in_cli_dir");
-}
+// Read contents from file 
+ch = fgetc(cli_file); 
+while (ch != EOF) 
+{ 
+    printf ("%c", ch); 
+    ch = fgetc(fptr); 
+} 
+
+fclose(fptr); 

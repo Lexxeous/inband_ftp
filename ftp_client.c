@@ -1,9 +1,11 @@
 #include "InBand_FTP.h"
 
+const int CLI_FILE_LEN = 80000;
 const int CLI_BUF_LEN = 512; // global variable to allocate different amounts of chars
-const int FTP_CMD_LEN = 3; //
 const int NO_CLI_BUF_OV = 5; // prevent overflow when appending filename
+const int P_MSG_LEN = 5;
 const int CTS_OR_ERR_LEN = 4;
+const int FTP_CMD_LEN = 3; //
 
 int main(int argc, char* argv[])
 {
@@ -42,8 +44,11 @@ int main(int argc, char* argv[])
     char buff[CLI_BUF_LEN]; // user terminal input
     memset(buff, '\0', CLI_BUF_LEN); // clear the terminal input buffer
 
-    char protocol_msg[CLI_BUF_LEN]; // "STOR:", "RETV:", "CTS:", "CONT:", "ERR:"
+    char protocol_msg[CLI_BUF_LEN]; // "STOR:", "RETV:", "CONT:"
     memset(protocol_msg, '\0', CLI_BUF_LEN); // clear the protocol message buffer
+
+    char cont_cmd[CLI_FILE_LEN + CLI_BUF_LEN]; // "CONT:<cont_byte_len>:<f_content>"
+    memset(cont_cmd, '\0', CLI_FILE_LEN + CLI_BUF_LEN); // clear the content message buffer
 
     char user_cmd[CLI_BUF_LEN]; // PMSG:<filename>
     memset(user_cmd, '\0', CLI_BUF_LEN); // clear the user command buffer
@@ -51,13 +56,19 @@ int main(int argc, char* argv[])
     char f_name[CLI_BUF_LEN]; // <filename>
     memset(f_name, '\0', CLI_BUF_LEN); // clear the file name buffer
 
+    char f_content[CLI_FILE_LEN]; // "<f_content>"
+    memset(f_content, '\0', CLI_FILE_LEN); // clear the file content buffer
+
+    char* cont_byte_len = (char*)malloc(CLI_BUF_LEN); // how long the file is in bytes ; 1 byte per char
+    memset(cont_byte_len, '\0', CLI_BUF_LEN); // clear the content message buffer
+
     char* ftp_cmd = (char*)malloc(FTP_CMD_LEN); // ftp command buffer ; "get" or "put"
     memset(ftp_cmd, '\0', FTP_CMD_LEN); // clear the file content buffer
 
     char* cts_or_err = (char*)malloc(CTS_OR_ERR_LEN); // "CTS:" or "ERR:"
     memset(cts_or_err, '\0', CTS_OR_ERR_LEN); // clear the file content buffer
 
-    FILE* cli_file;
+    FILE* cli_file; // pointer to client-side file
 
 
     // read terminal input
@@ -170,8 +181,7 @@ int main(int argc, char* argv[])
         }
         else
         {
-          print_serv_resp = true;
-          memcpy(protocol_msg, "STOR:", 5); // protocol_msg = "STOR:"
+          memcpy(protocol_msg, "STOR:", P_MSG_LEN); // protocol_msg = "STOR:"
           strcpy(user_cmd, protocol_msg); // prepend "STOR:"
           strcat(user_cmd, f_name); // append <filename>
           sendMessage(&info, user_cmd); // send STOR:<filename> to server
@@ -179,7 +189,7 @@ int main(int argc, char* argv[])
       }
       else if (!strcmp(ftp_cmd, "get"))
       {
-        memcpy(protocol_msg, "RETV:", 5); // protocol_msg = "RETV:"
+        memcpy(protocol_msg, "RETV:", P_MSG_LEN); // protocol_msg = "RETV:"
         strcpy(user_cmd, protocol_msg); // prepend "RETV:"
         strcat(user_cmd, f_name); // append <filename>
         sendMessage(&info, user_cmd); // send RETV:<filename> to server
@@ -198,15 +208,30 @@ int main(int argc, char* argv[])
       printf("Failed to receive message.\n");
       return 1;
     }
-    // if(print_serv_resp)
-    printf("%s\n", serv_resp);
+    if(print_serv_resp)
+      printf("%s\n", serv_resp);
 
 
     memcpy(cts_or_err, serv_resp, CTS_OR_ERR_LEN);
-    printf("%s\n", cts_or_err);
     if(!strcmp(cts_or_err, "CTS:"))
     {
-      printf("CLI GOT CTS: FROM SERVER\n");
+      char ch = fgetc(cli_file);
+      int ch_cnt = 0;
+      while (ch != EOF) 
+      { 
+        ch_cnt += 1;
+        append_char(f_content, ch);
+        ch = fgetc(cli_file);
+      }
+      printf("\n");
+
+      itoa(ch_cnt, cont_byte_len, 10);
+      memcpy(protocol_msg, "CONT:", P_MSG_LEN);
+      memcpy(cont_cmd, protocol_msg, P_MSG_LEN);
+      strcat(cont_cmd, cont_byte_len);
+      append_char(cont_cmd, ':');
+      strcat(cont_cmd, f_content);
+      sendMessage(&info, cont_cmd);
     }
     else
     {
@@ -215,6 +240,7 @@ int main(int argc, char* argv[])
 
 
     deallocate_message(serv_resp);
+    deallocate_message(cont_byte_len);
     deallocate_message(ftp_cmd);
     deallocate_message(cts_or_err);
   }

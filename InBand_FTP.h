@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <math.h>
 
 
 struct ConnectionInfo
@@ -57,6 +58,20 @@ int connect_to_server(char* who, int port, struct ConnectionInfo* con);
 // If the bind was successful then the server is now running on a new thread and 0 is returned.
 // If it was unsuccessful a nonzero value is returned. After an unsuccessful it must be possible to reattempt the bind and have it succeed if the operating system will allow the program to bind to the requested port number.
 int run_server(int port);
+
+
+
+void append_char(char* s, char c);
+
+
+
+/*
+ * C++ version 0.4 char* style "itoa":
+ * Written by Lukás Chmela
+ * Released under GPLv3.
+*/
+char* itoa(int value, char* result, int base);
+
 
 
 #endif

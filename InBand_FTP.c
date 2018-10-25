@@ -1,8 +1,48 @@
 #include "InBand_FTP.h"
 
-const int GLOB_BUF_LEN = 512; // global variable to allocate different amounts of chars
-const int GLOB_FILE_LEN = 80000;
+const int SERV_FILE_SIZE = 80000;
+const int SERV_BUF_SIZE = 512; // global variable to allocate different amounts of chars
 const int ACC_CONN = 10; // global variable for amount of acceptable connections
+const int P_MSG_SIZE = 5;
+const int CTS_OR_ERR_SIZE = 4;
+
+void append_char(char* s, char c)
+{
+  int len = strlen(s);
+  s[len] = c;
+  s[len+1] = '\0';
+}
+
+//------------------------------------------------------------------------------------------
+
+char* itoa(int value, char* result, int base)
+{
+	// check that the base if valid
+	if (base < 2 || base > 36) { *result = '\0'; return result; }
+
+	char* ptr = result, *ptr1 = result, tmp_char;
+	int tmp_value;
+
+	do
+	{
+		tmp_value = value;
+		value /= base;
+		*ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
+	} while ( value );
+
+	// Apply negative sign
+	if (tmp_value < 0) *ptr++ = '-';
+	*ptr-- = '\0';
+	while(ptr1 < ptr)
+	{
+		tmp_char = *ptr;
+		*ptr--= *ptr1;
+		*ptr1++ = tmp_char;
+	}
+	return result;
+}
+
+//------------------------------------------------------------------------------------------
 
 int sendMessage(struct ConnectionInfo* con, char* msg)
 {
@@ -20,15 +60,15 @@ int sendMessage(struct ConnectionInfo* con, char* msg)
 
 char* receiveMessage(struct ConnectionInfo* con)
 {
-	char* con_buf = (char*)malloc(GLOB_BUF_LEN); // allocate message memory
-	memset(con_buf, '\0', GLOB_BUF_LEN); // clear the "con_buf" buffer
+	char* con_buf = (char*)malloc(SERV_BUF_SIZE); // allocate message memory
+	memset(con_buf, '\0', SERV_BUF_SIZE); // clear the "con_buf" buffer
 
 	if(con == NULL) // dont allow empty struct
 	{
 		return "ERR:999 connection info is empty.\n";
 	}
 
-	recv(con->socket, con_buf, GLOB_BUF_LEN, 0); // receive the message
+	recv(con->socket, con_buf, SERV_BUF_SIZE, 0); // receive the message
 
 	return con_buf; // return what was sent
 }
@@ -144,30 +184,36 @@ int run_server(int port)
 
 		while(!closed) // loop while the client is still conencted
 		{
-			char* user_cmd = (char*)malloc(GLOB_BUF_LEN); // "user_cmd" buffer ; "PMSG:filename.ext"
-			memset(user_cmd, '\0', GLOB_BUF_LEN); // clear the user_cmd buffer
+			char* cont_cmd = (char*)malloc(SERV_FILE_SIZE + SERV_BUF_SIZE); // "CONT:<cont_byte_len>:<f_content>"
+    	memset(cont_cmd, '\0', SERV_FILE_SIZE + SERV_BUF_SIZE); // clear the content message buffer
 
-			char* con_buf = (char*)malloc(GLOB_BUF_LEN); // "ConnectionInfo" buffer ; 
-			memset(con_buf, '\0', GLOB_BUF_LEN); // clear the buffer
+			char* user_cmd = (char*)malloc(SERV_BUF_SIZE); // "user_cmd" buffer ; "PMSG:filename.ext"
+			memset(user_cmd, '\0', SERV_BUF_SIZE); // clear the user_cmd buffer
 
-			char* protocol_msg = (char*)malloc(GLOB_BUF_LEN); // protocol message buffer ; "PMSG:"
-			memset(protocol_msg, '\0', GLOB_BUF_LEN); // clear the protocol message buffer
+			char* con_buf = (char*)malloc(SERV_BUF_SIZE); // "ConnectionInfo" buffer ; 
+			memset(con_buf, '\0', SERV_BUF_SIZE); // clear the buffer
 
-			char* protocol_resp = (char*)malloc(GLOB_BUF_LEN); // protocol response buffer ; "CTS:filename.ext" ; "CONT:f_byte_len:content"
-			memset(protocol_resp, '\0', GLOB_BUF_LEN); // clear the protocol response buffer
+			char* protocol_msg = (char*)malloc(SERV_BUF_SIZE); // protocol message buffer ; "PMSG:"
+			memset(protocol_msg, '\0', SERV_BUF_SIZE); // clear the protocol message buffer
 
-			char* f_name = (char*)malloc(GLOB_BUF_LEN); // file name buffer ; filename.ext
-			memset(f_name, '\0', GLOB_BUF_LEN); // clear the "f_name" buffer
+			char* protocol_resp = (char*)malloc(SERV_BUF_SIZE); // protocol response buffer ; "CTS:filename.ext" ; "CONT:f_byte_len:content"
+			memset(protocol_resp, '\0', SERV_BUF_SIZE); // clear the protocol response buffer
 
-			char* f_content = (char*)malloc(GLOB_FILE_LEN); // file content buffer
-			memset(f_content, '\0', GLOB_FILE_LEN); // clear the file content buffer
+			char* f_name = (char*)malloc(SERV_BUF_SIZE); // file name buffer ; filename.ext
+			memset(f_name, '\0', SERV_BUF_SIZE); // clear the "f_name" buffer
+
+			char* f_content = (char*)malloc(SERV_FILE_SIZE); // file content buffer
+			memset(f_content, '\0', SERV_FILE_SIZE); // clear the file content buffer
+
+			char* cts_or_err = (char*)malloc(CTS_OR_ERR_SIZE); // file name buffer ; filename.ext
+			memset(cts_or_err, '\0', CTS_OR_ERR_SIZE); // clear the "f_name" buffer
 
 			FILE* serv_file;
 
 			// set up ConnectionInfo structure for the server
 			con.socket = newsockfd;
 			con.buf = con_buf;
-			con.buf_length = GLOB_BUF_LEN;
+			con.buf_length = SERV_BUF_SIZE;
 
 
 			// "quit", "STOR:<filename>", "RETV:<filename>"
@@ -178,10 +224,10 @@ int run_server(int port)
 			// separate user commands
 			if(strcmp(user_cmd, "quit")) // skip if user sent "quit"
 			{
-				memcpy(protocol_msg, user_cmd, 5); // protocol_msg = "PMSG:"
+				memcpy(protocol_msg, user_cmd, P_MSG_SIZE); // protocol_msg = "PMSG:"
 				printf("protocol_msg = %s\n", protocol_msg); // PMSG:
-				memcpy(f_name, user_cmd + 5, GLOB_BUF_LEN-5); // f_name = "<filename>"
-				printf("f_name = %s\n", f_name); // <filename>
+				memcpy(f_name, user_cmd + 5, SERV_BUF_SIZE-5); // f_name = "<filename>"
+				printf("f_name = %s\n\n", f_name); // <filename>
 			}
 
 
@@ -212,9 +258,9 @@ int run_server(int port)
 			{
 				if((serv_file = fopen(f_name, "r")) == NULL) // if "f_name" does not exist in "server_dir"
 				{
-					memcpy(protocol_resp, "CTS:", 4);
+					memcpy(cts_or_err, "CTS:", CTS_OR_ERR_SIZE);
+					memcpy(protocol_resp, cts_or_err, CTS_OR_ERR_SIZE);
 					strcat(protocol_resp, f_name);
-					printf("%s\n\n", protocol_resp);
 					sendMessage(&con, protocol_resp);
 				}
 				else // "f_name" already exists in "server_dir"
@@ -226,12 +272,24 @@ int run_server(int port)
 			{
 				sendMessage(&con, "Invalid command. Type \"help\" for the list of FTP commands.\n");
 			}
+
+
+			if(!strcmp(cts_or_err, "CTS:"))
+			{
+				cont_cmd = receiveMessage(&con);
+				printf("%s\n", cont_cmd);
+			}
+
+
+			// free all allocated variables
+			deallocate_message(cont_cmd);
 			deallocate_message(user_cmd);
 			deallocate_message(con_buf);
 			deallocate_message(protocol_msg);
 			deallocate_message(protocol_resp);
 			deallocate_message(f_name);
 			deallocate_message(f_content);
+			deallocate_message(cts_or_err);
 		}
 	}
 	return 0; // shouldnt ever run
