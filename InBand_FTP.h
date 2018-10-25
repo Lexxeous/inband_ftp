@@ -80,4 +80,7 @@ char* extract_byte_len(char* s);
 int int_width(int x);
 
 
+bool is_empty_file(const char* filepath);
+
+
 #endif

@@ -39,13 +39,17 @@ printf("HERE8\n");
 printf("HERE9\n");
 
 
+bool is_empty_file(const char* filepath);
+{
+    FILE* fd = fopen(f_name, "r")
+    if (fd != NULL) 
+    {
+        fseek (fd, 0, SEEK_END);
+        size = ftell(fd);
 
-// Read contents from file 
-ch = fgetc(cli_file); 
-while (ch != EOF) 
-{ 
-    printf ("%c", ch); 
-    ch = fgetc(fptr); 
-} 
-
-fclose(fptr); 
+        if (0 == size)
+        {
+            return true;
+        }
+    }
+}

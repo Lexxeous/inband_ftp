@@ -2,6 +2,9 @@ help works :)
 
 quit works :)
 
+put works mostly :) fix memory leak
+pointer being freed was not allocated OCCURED ON THE SERVER SIDE AND CRASHED IT BUT NOT THE CLIENT
+
 
 
 MAKE THE USER TYPE A SPACE AFTER A PUT OR GET COMMAND
@@ -15,13 +18,15 @@ put filename.ext
 get 							ERR:400 badrequest, improper command format and filename not included for retrieval.
 getfilename.ext 	ERR:403 forbidden, improper command format.
 get\s							ERR:400 badrequest, filename not included for retrieval.
-get filename.ext 	
+get filename.ext
 
 
 
 
 
 Get ERR:XXX codes in order...
+
+ERR:000 empty file.
 
 ERR:400 bad request, FTP command too short.
 ERR:400 bad request, improper command format and filename not included for storage.
@@ -36,5 +41,3 @@ ERR:404 <filename> does not exist in the remote server directory.
 
 ERR:409 conflict, file already exists in remote directory
 ERR:999 connection info is empty.
-
-

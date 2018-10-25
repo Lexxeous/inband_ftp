@@ -57,7 +57,7 @@ void write_to_new_file(const char* filepath, const char* data)
 //------------------------------------------------------------------------------------------
 
 char* extract_byte_len(char* s)
-{	
+{
 	int start_i = 5;
 	int width = 10;
 	int max_i = start_i + width;
@@ -78,6 +78,27 @@ char* extract_byte_len(char* s)
 int int_width(int x)
 {
 	return floor(log10(x)) + 1;
+}
+
+//------------------------------------------------------------------------------------------
+
+bool is_empty_file(const char* filepath)
+{
+	int size;
+  FILE* fd = fopen(filepath, "r");
+  if (fd != NULL)
+  {
+    fseek (fd, 0, SEEK_END);
+    size = ftell(fd);
+    fclose(fd);
+
+    if (0 == size)
+    {
+      return true;
+    }
+  }
+  fclose(fd);
+  return false;
 }
 
 //------------------------------------------------------------------------------------------
@@ -110,14 +131,14 @@ char* receiveMessage(struct ConnectionInfo* con)
 
 	return con_buf; // return what was sent
 }
- 
+
 //------------------------------------------------------------------------------------------
 
 void deallocate_message(char* mem)
 {
 	free(mem); // free (deallocate) message memory
 }
- 
+
 //------------------------------------------------------------------------------------------
 
 int connect_to_server(char* who, int port, struct ConnectionInfo* con)
@@ -127,33 +148,33 @@ int connect_to_server(char* who, int port, struct ConnectionInfo* con)
 	struct hostent* hent;
 
 	// error check the port number
-	if(port < 10001) 
+	if(port < 10001)
 	{
 		printf("Port ≥ 10001 required.\n");
 		return 1;
 	}
 
-	if((hent=gethostbyname(who)) == NULL) 
+	if((hent=gethostbyname(who)) == NULL)
 	{
 		printf("Invalid host name.\n");
 		return 1;
 	}
-	
+
 	// create the client socket.
 	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) // create socket with IPv4 and stream configuration
 	{
 		printf("Socket error.\n");
 		return 1;
 	}
-	
+
 	memset((void*) &server_addr, 0, sizeof(server_addr)); // clear the server address structure
-	
+
 	// set up the server address structure.
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_addr = *((struct in_addr*)hent->h_addr);
 	server_addr.sin_port = htons(port);
 
-	if(connect(sockfd, (struct sockaddr*) &server_addr, sizeof(server_addr)) < 0) 
+	if(connect(sockfd, (struct sockaddr*) &server_addr, sizeof(server_addr)) < 0)
 	{
 		printf("Connect error.\n");
 		return 1;
@@ -163,7 +184,7 @@ int connect_to_server(char* who, int port, struct ConnectionInfo* con)
 
 	return 0; // return successfully
 }
- 
+
 //------------------------------------------------------------------------------------------
 
 int run_server(int port)
@@ -175,7 +196,7 @@ int run_server(int port)
 	unsigned int client_length;
 	struct sockaddr_in server_addr, cli_addr; // structures for client and server addresses.
 	struct ConnectionInfo con;
-	
+
 
 	// create the server socket.
 	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) // fail if return -1
@@ -183,23 +204,23 @@ int run_server(int port)
 		printf("Socket error.\n");
 		return 1;
 	}
-	
+
 
 	// set up the server address structure
 	memset((void*) &server_addr, 0, sizeof(server_addr)); // clear the server address structure
 	server_addr.sin_family = AF_INET; // use IPv4
 	server_addr.sin_addr.s_addr = htonl(INADDR_ANY); // accept any connections
 	server_addr.sin_port = htons(port); // use network byte order (big-endian)
-	
+
 
 	// bind the socket to the server address and port
-	if(bind(sockfd, (struct sockaddr*) &server_addr, sizeof(server_addr)) < 0) 
+	if(bind(sockfd, (struct sockaddr*) &server_addr, sizeof(server_addr)) < 0)
 	{
 		printf("Bind error.\n");
 		return 1;
 	}
 	printf("Successfully bound server on port %d.\n", port);
-	
+
 
 	// listen on the socket, queue ACC_CONN incoming connections
 	listen(sockfd, ACC_CONN);
@@ -234,7 +255,7 @@ int run_server(int port)
 			char* user_cmd = (char*)malloc(SERV_BUF_SIZE); // "user_cmd" buffer ; "PMSG:filename.ext"
 			memset(user_cmd, '\0', SERV_BUF_SIZE); // clear the user_cmd buffer
 
-			char* con_buf = (char*)malloc(SERV_BUF_SIZE); // "ConnectionInfo" buffer ; 
+			char* con_buf = (char*)malloc(SERV_BUF_SIZE); // "ConnectionInfo" buffer ;
 			memset(con_buf, '\0', SERV_BUF_SIZE); // clear the buffer
 
 			char* protocol_msg = (char*)malloc(SERV_BUF_SIZE); // protocol message buffer ; "PMSG:"
@@ -262,16 +283,16 @@ int run_server(int port)
 
 			// "quit", "STOR:<filename>", "RETV:<filename>"
 			user_cmd = receiveMessage(&con);
-			printf("user_cmd = %s\n", user_cmd);
+			printf("user_cmd: %s\n", user_cmd);
 
 
 			// separate user commands
 			if(strcmp(user_cmd, "quit")) // skip if user sent "quit"
 			{
 				memcpy(protocol_msg, user_cmd, P_MSG_SIZE); // protocol_msg = "PMSG:"
-				printf("protocol_msg = %s\n", protocol_msg); // PMSG:
-				memcpy(f_name, user_cmd + 5, SERV_BUF_SIZE-5); // f_name = "<filename>"
-				printf("f_name = %s\n\n", f_name); // <filename>
+				printf("protocol_msg: %s\n", protocol_msg); // PMSG:
+				memcpy(f_name, user_cmd + 5, SERV_BUF_SIZE - 5); // f_name = "<filename>"
+				printf("f_name: %s\n\n", f_name); // <filename>
 			}
 
 
@@ -321,31 +342,28 @@ int run_server(int port)
 
 			if(!strcmp(cts_or_err, "CTS:"))
 			{
-				cont_cmd = receiveMessage(&con); // "CONT:<cont_byte_len>:<f_content>"
-				printf("%s\n", cont_cmd);
+				cont_cmd = receiveMessage(&con); // "CONT:<cont_byte_len>:<f_content>" or "ERR:000 empty file."
 
-
-				cont_byte_len = extract_byte_len(cont_cmd); // get the "cont_byte_len" string
-				if(cont_byte_len == NULL)
+				if(strstr(cont_cmd, "CONT:"))
 				{
-					printf("EMPTY FILE\n");
+					cont_byte_len = extract_byte_len(cont_cmd); // get the "cont_byte_len" string
+					cont_byte_size = atoi(cont_byte_len); // convert "cont_byte_len" string to "cont_byte_size" integer
+					cont_byte_width = int_width(cont_byte_size); // width of the "cont_byte_size"
+
+					int shift = P_MSG_SIZE + cont_byte_width + 1; // calculate shift to <f_content>
+					memcpy(f_content, cont_cmd + shift, SERV_FILE_SIZE - shift); // copy <f_content> to "f_content"
+					write_to_new_file(f_name, f_content); // create new file in "server_dir"
 				}
-
-				cont_byte_size = atoi(cont_byte_len); // convert "cont_byte_len" string to "cont_byte_size" integer
-				cont_byte_width = int_width(cont_byte_size); // width of the "cont_byte_size"
-
-
-				if(strstr(cont_cmd, "CONT:") != NULL)
+				else if (strstr(cont_cmd, "ERR:"))
 				{
-					int shift = P_MSG_SIZE + cont_byte_width + 1;
-					memcpy(f_content, cont_cmd + shift, SERV_FILE_SIZE - shift);
-					write_to_new_file(f_name, f_content);
+					printf("...failed STOR.\n\n");
 				}
 			}
 
 
 			// free all allocated variables
 			deallocate_message(cont_cmd);
+			deallocate_message(cont_byte_len);
 			deallocate_message(user_cmd);
 			deallocate_message(con_buf);
 			deallocate_message(protocol_msg);
@@ -357,6 +375,3 @@ int run_server(int port)
 	}
 	return 0; // shouldnt ever run
 }
-
-
-

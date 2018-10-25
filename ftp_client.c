@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
     memset(protocol_msg, '\0', CLI_BUF_LEN); // clear the protocol message buffer
 
     char cont_cmd[CLI_FILE_LEN + CLI_BUF_LEN]; // "CONT:<cont_byte_len>:<f_content>"
-    memset(cont_cmd, '\0', CLI_FILE_LEN + CLI_BUF_LEN); // clear the content message buffer
+    memset(cont_cmd, '\0', CLI_FILE_LEN + CLI_BUF_LEN); // clear the content command buffer
 
     char user_cmd[CLI_BUF_LEN]; // PMSG:<filename>
     memset(user_cmd, '\0', CLI_BUF_LEN); // clear the user command buffer
@@ -59,14 +59,17 @@ int main(int argc, char* argv[])
     char f_content[CLI_FILE_LEN]; // "<f_content>"
     memset(f_content, '\0', CLI_FILE_LEN); // clear the file content buffer
 
+    char* serv_resp = (char*)malloc(CLI_BUF_LEN); // "CTS:<filename>" or "ERR:409, conflict..."
+    memset(serv_resp, '\0', CLI_BUF_LEN); // clear the server response buffer
+
     char* cont_byte_len = (char*)malloc(CLI_BUF_LEN); // how long the file is in bytes ; 1 byte per char
     memset(cont_byte_len, '\0', CLI_BUF_LEN); // clear the content message buffer
 
     char* ftp_cmd = (char*)malloc(FTP_CMD_LEN); // ftp command buffer ; "get" or "put"
-    memset(ftp_cmd, '\0', FTP_CMD_LEN); // clear the file content buffer
+    memset(ftp_cmd, '\0', FTP_CMD_LEN); // clear the ftp command buffer
 
     char* cts_or_err = (char*)malloc(CTS_OR_ERR_LEN); // "CTS:" or "ERR:"
-    memset(cts_or_err, '\0', CTS_OR_ERR_LEN); // clear the file content buffer
+    memset(cts_or_err, '\0', CTS_OR_ERR_LEN); // clear the "cts_or_err" buffer
 
     FILE* cli_file; // pointer to client-side file
 
@@ -202,7 +205,7 @@ int main(int argc, char* argv[])
 
 
     // receive the server response
-    char* serv_resp = receiveMessage(&info);
+    serv_resp = receiveMessage(&info); // "CTS:<filename>" or "ERR:409 conflict, file already exists in remote directory"
     if(serv_resp == NULL)
     {
       printf("Failed to receive message.\n");
@@ -215,30 +218,42 @@ int main(int argc, char* argv[])
     memcpy(cts_or_err, serv_resp, CTS_OR_ERR_LEN);
     if(!strcmp(cts_or_err, "CTS:"))
     {
-      char ch = fgetc(cli_file);
-      int ch_cnt = 0;
-      while (ch != EOF) 
-      { 
-        ch_cnt += 1;
-        append_char(f_content, ch);
-        ch = fgetc(cli_file);
+      if(is_empty_file(f_name)) // file has no content
+      {
+        printf("ERR:000 empty file.\n");
+        sendMessage(&info, "ERR:000 empty file.");
       }
-      printf("\n");
+      else // file has content
+      {
+        // get the "f_content" from "f_name" in "client_dir" one byte at a time
+        char ch = fgetc(cli_file);
+        int ch_cnt = 0;
+        while (ch != EOF)
+        {
+          ch_cnt += 1;
+          append_char(f_content, ch);
+          ch = fgetc(cli_file);
+        }
+        printf("\n");
 
-      itoa(ch_cnt, cont_byte_len, 10);
-      memcpy(protocol_msg, "CONT:", P_MSG_LEN);
-      memcpy(cont_cmd, protocol_msg, P_MSG_LEN);
-      strcat(cont_cmd, cont_byte_len);
-      append_char(cont_cmd, ':');
-      strcat(cont_cmd, f_content);
-      sendMessage(&info, cont_cmd);
+        // form and send the "CONT:<cont_byte_len>:<f_content>" message
+        itoa(ch_cnt, cont_byte_len, 10);
+        memcpy(protocol_msg, "CONT:", P_MSG_LEN);
+        memcpy(cont_cmd, protocol_msg, P_MSG_LEN);
+        strcat(cont_cmd, cont_byte_len);
+        append_char(cont_cmd, ':');
+        strcat(cont_cmd, f_content);
+        sendMessage(&info, cont_cmd);
+      }
     }
     else if (!strcmp(cts_or_err, "ERR:"))
     {
       printf("%s\n", serv_resp);
     }
 
+    fclose(cli_file); // close file on client-side
 
+    // free all allocated variables
     deallocate_message(serv_resp);
     deallocate_message(cont_byte_len);
     deallocate_message(ftp_cmd);
