@@ -44,6 +44,44 @@ char* itoa(int value, char* result, int base)
 
 //------------------------------------------------------------------------------------------
 
+void write_to_new_file(const char* filepath, const char* data)
+{
+	FILE* fd = fopen(filepath, "w");
+	if (fd != NULL)
+	{
+    fputs(data, fd);
+    fclose(fd);
+	}
+}
+
+//------------------------------------------------------------------------------------------
+
+char* extract_byte_len(char* s)
+{	
+	int start_i = 5;
+	int width = 10;
+	int max_i = start_i + width;
+	char* buf = (char*)malloc(width);
+  memset(buf, '\0', width);
+	for (int i = start_i; i <= max_i; i++)
+	{
+		if(s[i] == ':')
+			break;
+		append_char(buf, s[i]);
+	}
+	deallocate_message(buf);
+	return buf;
+}
+
+//------------------------------------------------------------------------------------------
+
+int int_width(int x)
+{
+	return floor(log10(x)) + 1;
+}
+
+//------------------------------------------------------------------------------------------
+
 int sendMessage(struct ConnectionInfo* con, char* msg)
 {
 	if(con == NULL || msg == NULL) // dont allow empty structs or messages
@@ -184,8 +222,14 @@ int run_server(int port)
 
 		while(!closed) // loop while the client is still conencted
 		{
+			int cont_byte_size; // CONT:"<cont_byte_size>":<f_content>
+			int cont_byte_width; // the width of "cont_byte_size"
+
 			char* cont_cmd = (char*)malloc(SERV_FILE_SIZE + SERV_BUF_SIZE); // "CONT:<cont_byte_len>:<f_content>"
     	memset(cont_cmd, '\0', SERV_FILE_SIZE + SERV_BUF_SIZE); // clear the content message buffer
+
+    	char* cont_byte_len = (char*)malloc(SERV_BUF_SIZE); // CONT:"<cont_byte_len>":<f_content> ; 1 byte per char
+    	memset(cont_byte_len, '\0', SERV_BUF_SIZE); // clear the content message buffer
 
 			char* user_cmd = (char*)malloc(SERV_BUF_SIZE); // "user_cmd" buffer ; "PMSG:filename.ext"
 			memset(user_cmd, '\0', SERV_BUF_SIZE); // clear the user_cmd buffer
@@ -262,6 +306,7 @@ int run_server(int port)
 					memcpy(protocol_resp, cts_or_err, CTS_OR_ERR_SIZE);
 					strcat(protocol_resp, f_name);
 					sendMessage(&con, protocol_resp);
+					fclose(serv_file);
 				}
 				else // "f_name" already exists in "server_dir"
 				{
@@ -276,8 +321,26 @@ int run_server(int port)
 
 			if(!strcmp(cts_or_err, "CTS:"))
 			{
-				cont_cmd = receiveMessage(&con);
+				cont_cmd = receiveMessage(&con); // "CONT:<cont_byte_len>:<f_content>"
 				printf("%s\n", cont_cmd);
+
+
+				cont_byte_len = extract_byte_len(cont_cmd); // get the "cont_byte_len" string
+				if(cont_byte_len == NULL)
+				{
+					printf("EMPTY FILE\n");
+				}
+
+				cont_byte_size = atoi(cont_byte_len); // convert "cont_byte_len" string to "cont_byte_size" integer
+				cont_byte_width = int_width(cont_byte_size); // width of the "cont_byte_size"
+
+
+				if(strstr(cont_cmd, "CONT:") != NULL)
+				{
+					int shift = P_MSG_SIZE + cont_byte_width + 1;
+					memcpy(f_content, cont_cmd + shift, SERV_FILE_SIZE - shift);
+					write_to_new_file(f_name, f_content);
+				}
 			}
 
 

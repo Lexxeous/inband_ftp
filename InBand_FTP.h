@@ -60,9 +60,7 @@ int connect_to_server(char* who, int port, struct ConnectionInfo* con);
 int run_server(int port);
 
 
-
 void append_char(char* s, char c);
-
 
 
 /*
@@ -72,6 +70,14 @@ void append_char(char* s, char c);
 */
 char* itoa(int value, char* result, int base);
 
+
+void write_to_new_file(const char* filepath, const char* data);
+
+
+char* extract_byte_len(char* s);
+
+
+int int_width(int x);
 
 
 #endif

@@ -233,9 +233,9 @@ int main(int argc, char* argv[])
       strcat(cont_cmd, f_content);
       sendMessage(&info, cont_cmd);
     }
-    else
+    else if (!strcmp(cts_or_err, "ERR:"))
     {
-      printf("CLI GOT ERR: FROM SERVER\n");
+      printf("%s\n", serv_resp);
     }
 
 
