@@ -252,7 +252,7 @@ int run_server(int port)
     	char* cont_byte_len = (char*)malloc(SERV_BUF_SIZE); // CONT:"<cont_byte_len>":<f_content> ; 1 byte per char
     	memset(cont_byte_len, '\0', SERV_BUF_SIZE); // clear the content message buffer
 
-			char* user_cmd = (char*)malloc(SERV_BUF_SIZE); // "user_cmd" buffer ; "PMSG:filename.ext"
+			char* user_cmd = (char*)malloc(SERV_BUF_SIZE); // "user_cmd" buffer ; "PMSG:<filename>"
 			memset(user_cmd, '\0', SERV_BUF_SIZE); // clear the user_cmd buffer
 
 			char* con_buf = (char*)malloc(SERV_BUF_SIZE); // "ConnectionInfo" buffer ;

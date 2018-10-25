@@ -31,7 +31,7 @@ pids:
 	lsof -i tcp:10003
 
 kill_s:
-	kill `pgrep ftp_server`
+	kill `pgrep ftp_server` # kill <server_PID>
 
 kill_c:
-	kill `pgrep ftp_client`
+	kill `pgrep ftp_client` # kill <client_PID>
