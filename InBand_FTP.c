@@ -69,7 +69,7 @@ char* extract_byte_len(char* s)
 			break;
 		append_char(buf, s[i]);
 	}
-	deallocate_message(buf);
+	// deallocate_message(buf);
 	return buf;
 }
 
@@ -304,20 +304,43 @@ int run_server(int port)
 			}
 			else if(!strcmp(protocol_msg, "RETV:")) // if client sends "get <filename>" command
 			{
-				// // if "f_name" exists in "server_dir"
-				// memcpy(protocol_resp, "CONT:", 5);
+				if((serv_file = fopen(f_name, "r")) == NULL) // if "f_name" does not exist in "server_dir"
+				{
+					printf("ERR:404 %s does not exist in the remote server directory.\n", f_name);
+					printf("...failed RETV.\n\n");
+					sendMessage(&con, "ERR:404 <filename> does not exist in the remote server directory.");
+				}
+				else // "f_name" does exist in "server_dir"
+				{
+					if(is_empty_file(f_name)) // "f_name" in "server_dir" has no content
+					{
+						printf("ERR:000 empty server file.\n");
+						printf("...failed RETV.\n\n");
+          	sendMessage(&con, "ERR:000 empty server file.");
+					}
+					else // "f_name" in "server_dir" does have content
+					{
+						// get the "f_content" from "f_name" in "server_dir" one byte at a time
+						char ch = fgetc(serv_file);
+						int ch_cnt = 0;
+						while (ch != EOF)
+						{
+						    ch_cnt += 1;
+						    append_char(f_content, ch);
+						    ch = fgetc(serv_file);
+						}
+						printf("\n");
 
-				// // get the file size in bytes (f_byte_len)
-				// strcat(protocol_resp, (char*)f_byte_len);
-				// strcat(protocol_resp, ":");
-
-				// // get content of file in ASCII (f_content)
-				// strcat(protocol_resp, f_content);
-				// printf("%s\n", protocol_resp);
-				// sendMessage(&con, protocol_resp);
-				// // else
-
-				// sendMessage(&con, "ERR:404 file does not exist in remote directory.");
+						// form and send the "CONT:<cont_byte_len>:<f_content>" message
+						itoa(ch_cnt, cont_byte_len, 10);
+						memcpy(protocol_msg, "CONT:", P_MSG_SIZE);
+						memcpy(cont_cmd, protocol_msg, P_MSG_SIZE);
+						strcat(cont_cmd, cont_byte_len);
+						append_char(cont_cmd, ':');
+						strcat(cont_cmd, f_content);
+						sendMessage(&con, cont_cmd);
+					}
+				}
 			}
 			else if(!strcmp(protocol_msg, "STOR:")) // if client sends "put <filename>" command
 			{
@@ -327,7 +350,6 @@ int run_server(int port)
 					memcpy(protocol_resp, cts_or_err, CTS_OR_ERR_SIZE);
 					strcat(protocol_resp, f_name);
 					sendMessage(&con, protocol_resp);
-					fclose(serv_file);
 				}
 				else // "f_name" already exists in "server_dir"
 				{
@@ -336,13 +358,14 @@ int run_server(int port)
 			}
 			else
 			{
+				printf("ERR:503 bad sequence of commands, improper client command.\n");
 				sendMessage(&con, "Invalid command. Type \"help\" for the list of FTP commands.\n");
 			}
 
 
 			if(!strcmp(cts_or_err, "CTS:"))
 			{
-				cont_cmd = receiveMessage(&con); // "CONT:<cont_byte_len>:<f_content>" or "ERR:000 empty file."
+				cont_cmd = receiveMessage(&con); // "CONT:<cont_byte_len>:<f_content>" or "ERR:000 ..."
 
 				if(strstr(cont_cmd, "CONT:"))
 				{
@@ -360,6 +383,8 @@ int run_server(int port)
 				}
 			}
 
+
+			fclose(serv_file);
 
 			// free all allocated variables
 			deallocate_message(cont_cmd);

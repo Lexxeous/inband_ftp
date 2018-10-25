@@ -3,22 +3,9 @@ help works :)
 quit works :)
 
 put works mostly :) fix memory leak
-pointer being freed was not allocated OCCURED ON THE SERVER SIDE AND CRASHED IT BUT NOT THE CLIENT
 
-
-
-MAKE THE USER TYPE A SPACE AFTER A PUT OR GET COMMAND
-
-put 							ERR:400 bad request, improper command format and filename not included for storage.
-putfilename.ext 	ERR:403 forbidden, improper command format.
-put\s							ERR:400 bad request, filename not included for storage.
-put filename.ext
-
-
-get 							ERR:400 badrequest, improper command format and filename not included for retrieval.
-getfilename.ext 	ERR:403 forbidden, improper command format.
-get\s							ERR:400 badrequest, filename not included for retrieval.
-get filename.ext
+get works mostly :) fix memory leak
+pointer being freed was not allocated 
 
 
 
@@ -26,18 +13,23 @@ get filename.ext
 
 Get ERR:XXX codes in order...
 
-ERR:000 empty file.
+ERR:000 empty client file.
+ERR:000 empty server file.
 
 ERR:400 bad request, FTP command too short.
 ERR:400 bad request, improper command format and filename not included for storage.
 ERR:400 bad request, filename not included for storage.
-ERR:400 badrequest, improper command format and filename not included for retrieval.
-ERR:400 badrequest, filename not included for retrieval.
+ERR:400 bad request, improper command format and filename not included for retrieval.
+ERR:400 bad request, filename not included for retrieval.
 
 ERR:403 forbidden, improper command format.
 
 ERR:404 <filename> does not exist in the local client directory.
 ERR:404 <filename> does not exist in the remote server directory.
 
-ERR:409 conflict, file already exists in remote directory
+ERR:409 conflict, file already exists in remote directory.
+
+ERR:503 bad sequence of commands, improper client command.
+ERR:503 bad sequence of commands, improper server response.
+
 ERR:999 connection info is empty.

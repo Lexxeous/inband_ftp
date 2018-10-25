@@ -39,16 +39,15 @@ int main(int argc, char* argv[])
     bool chk2 = false;
     bool chk3 = false;
 
-    int buff_len;
+    int buff_len; // length of "buff" including '\n'
+    int cont_byte_size; // the integer version of "cont_byte_len"
+    int cont_byte_width; // the width of "cont_byte_size"
 
     char buff[CLI_BUF_LEN]; // user terminal input
     memset(buff, '\0', CLI_BUF_LEN); // clear the terminal input buffer
 
     char protocol_msg[CLI_BUF_LEN]; // "STOR:", "RETV:", "CONT:"
     memset(protocol_msg, '\0', CLI_BUF_LEN); // clear the protocol message buffer
-
-    char cont_cmd[CLI_FILE_LEN + CLI_BUF_LEN]; // "CONT:<cont_byte_len>:<f_content>"
-    memset(cont_cmd, '\0', CLI_FILE_LEN + CLI_BUF_LEN); // clear the content command buffer
 
     char user_cmd[CLI_BUF_LEN]; // PMSG:<filename>
     memset(user_cmd, '\0', CLI_BUF_LEN); // clear the user command buffer
@@ -71,6 +70,9 @@ int main(int argc, char* argv[])
     char* cts_or_err = (char*)malloc(CTS_OR_ERR_LEN); // "CTS:" or "ERR:"
     memset(cts_or_err, '\0', CTS_OR_ERR_LEN); // clear the "cts_or_err" buffer
 
+    char* cont_cmd = (char*)malloc(CLI_FILE_LEN + CLI_BUF_LEN); // "CONT:<cont_byte_len>:<f_content>"
+    memset(cont_cmd, '\0', CLI_FILE_LEN + CLI_BUF_LEN); // clear the content command buffer
+
     FILE* cli_file; // pointer to client-side file
 
 
@@ -87,7 +89,7 @@ int main(int argc, char* argv[])
     }
     else // if the user inputs any string
     {
-      buff_len = strlen(buff); // length of buff including '\n'
+      buff_len = strlen(buff); // length of "buff" including '\n'
       buff[buff_len - 1] = '\0'; // remove trailing '\n' from buff
     }
 
@@ -102,7 +104,7 @@ int main(int argc, char* argv[])
     }
     else if (!strcmp(buff, "help"))
     {
-      printf("The avaliable FTP commands are: quit, get <filename>, & put <filename>.\n");
+      printf("The avaliable FTP commands are: help, quit, get <filename>, & put <filename>.\n");
       continue;
     }
     else
@@ -205,7 +207,9 @@ int main(int argc, char* argv[])
 
 
     // receive the server response
-    serv_resp = receiveMessage(&info); // "CTS:<filename>" or "ERR:409 conflict, file already exists in remote directory"
+      // FOR PUT REPLY: "CTS:<filename>" or "ERR:409 conflict, ..."
+      // FOR GET REPLY: "ERR:404 ..." or "CONT:<cont_btye_len>:<f_content>" or "ERR:000 ..."
+    serv_resp = receiveMessage(&info);
     if(serv_resp == NULL)
     {
       printf("Failed to receive message.\n");
@@ -214,42 +218,74 @@ int main(int argc, char* argv[])
     if(print_serv_resp)
       printf("%s\n", serv_resp);
 
-
-    memcpy(cts_or_err, serv_resp, CTS_OR_ERR_LEN);
-    if(!strcmp(cts_or_err, "CTS:"))
-    {
-      if(is_empty_file(f_name)) // file has no content
+    if((strstr(serv_resp, "CTS:") != NULL) || (strstr(serv_resp, "ERR:409") != NULL))
+    { 
+      // a "put" reply
+      memcpy(cts_or_err, serv_resp, CTS_OR_ERR_LEN);
+      if(!strcmp(cts_or_err, "CTS:"))
       {
-        printf("ERR:000 empty file.\n");
-        sendMessage(&info, "ERR:000 empty file.");
-      }
-      else // file has content
-      {
-        // get the "f_content" from "f_name" in "client_dir" one byte at a time
-        char ch = fgetc(cli_file);
-        int ch_cnt = 0;
-        while (ch != EOF)
+        if(is_empty_file(f_name)) // "f_name" in "client_fir" has no content
         {
-          ch_cnt += 1;
-          append_char(f_content, ch);
-          ch = fgetc(cli_file);
+          printf("ERR:000 empty client file.\n");
+          sendMessage(&info, "ERR:000 empty client file.");
         }
-        printf("\n");
+        else // "f_name" in "client_dir" does have content
+        {
+          // get the "f_content" from "f_name" in "client_dir" one byte at a time
+          char ch = fgetc(cli_file);
+          int ch_cnt = 0;
+          while (ch != EOF)
+          {
+            ch_cnt += 1;
+            append_char(f_content, ch);
+            ch = fgetc(cli_file);
+          }
+          printf("\n");
 
-        // form and send the "CONT:<cont_byte_len>:<f_content>" message
-        itoa(ch_cnt, cont_byte_len, 10);
-        memcpy(protocol_msg, "CONT:", P_MSG_LEN);
-        memcpy(cont_cmd, protocol_msg, P_MSG_LEN);
-        strcat(cont_cmd, cont_byte_len);
-        append_char(cont_cmd, ':');
-        strcat(cont_cmd, f_content);
-        sendMessage(&info, cont_cmd);
+          // form and send the "CONT:<cont_byte_len>:<f_content>" message
+          itoa(ch_cnt, cont_byte_len, 10);
+          memcpy(protocol_msg, "CONT:", P_MSG_LEN);
+          memcpy(cont_cmd, protocol_msg, P_MSG_LEN);
+          strcat(cont_cmd, cont_byte_len);
+          append_char(cont_cmd, ':');
+          strcat(cont_cmd, f_content);
+          sendMessage(&info, cont_cmd);
+        }
+      }
+      else if (!strcmp(cts_or_err, "ERR:"))
+      {
+        printf("%s\n", serv_resp);
       }
     }
-    else if (!strcmp(cts_or_err, "ERR:"))
-    {
-      printf("%s\n", serv_resp);
+    else if((strstr(serv_resp, "CONT:") != NULL) || (strstr(serv_resp, "ERR:404") != NULL) || (strstr(serv_resp, "ERR:000") != NULL))
+    { 
+      // a "get" reply
+      if(strstr(serv_resp, "CONT:"))
+      {
+        cont_cmd = serv_resp;
+        cont_byte_len = extract_byte_len(cont_cmd); // get the "cont_byte_len" string
+        cont_byte_size = atoi(cont_byte_len); // convert "cont_byte_len" string to "cont_byte_size" integer
+        cont_byte_width = int_width(cont_byte_size); // width of the "cont_byte_size"
+
+        int shift = P_MSG_LEN + cont_byte_width + 1; // calculate shift to <f_content>
+        memcpy(f_content, cont_cmd + shift, CLI_FILE_LEN - shift); // copy <f_content> to "f_content"
+        write_to_new_file(f_name, f_content); // create new file in "server_dir"
+      }
+      else if(strstr(serv_resp, "ERR:404"))
+      {
+        printf("ERR:404 %s does not exist in the remote server directory.\n", f_name);
+      }
+      else if(strstr(serv_resp, "ERR:000"))
+      {
+        printf("ERR:000 %s does not exist in the remote server directory.\n", f_name);
+      }
     }
+    else
+    {
+      printf("ERR:503 bad sequence of commands, improper server response.\n");
+    }
+
+    
 
     fclose(cli_file); // close file on client-side
 
@@ -258,6 +294,7 @@ int main(int argc, char* argv[])
     deallocate_message(cont_byte_len);
     deallocate_message(ftp_cmd);
     deallocate_message(cts_or_err);
+    deallocate_message(cont_cmd);
   }
 
   return 0;

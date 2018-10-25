@@ -24,32 +24,22 @@
 }
 
 
-
-
-
-printf("HERE0\n");
-printf("HERE1\n");
-printf("HERE2\n");
-printf("HERE3\n");
-printf("HERE4\n");
-printf("HERE5\n");
-printf("HERE6\n");
-printf("HERE7\n");
-printf("HERE8\n");
-printf("HERE9\n");
-
-
-bool is_empty_file(const char* filepath);
+// get the "f_content" from "f_name" in "server_dir" one byte at a time
+char ch = fgetc(serv_file);
+int ch_cnt = 0;
+while (ch != EOF)
 {
-    FILE* fd = fopen(f_name, "r")
-    if (fd != NULL) 
-    {
-        fseek (fd, 0, SEEK_END);
-        size = ftell(fd);
-
-        if (0 == size)
-        {
-            return true;
-        }
-    }
+    ch_cnt += 1;
+    append_char(f_content, ch);
+    ch = fgetc(serv_file);
 }
+printf("\n");
+
+// form and send the "CONT:<cont_byte_len>:<f_content>" message
+itoa(ch_cnt, cont_byte_len, 10);
+memcpy(protocol_msg, "CONT:", P_MSG_SIZE);
+memcpy(cont_cmd, protocol_msg, P_MSG_SIZE);
+strcat(cont_cmd, cont_byte_len);
+append_char(cont_cmd, ':');
+strcat(cont_cmd, f_content);
+sendMessage(&con, cont_cmd);
