@@ -71,15 +71,22 @@ void append_char(char* s, char c);
 char* itoa(int value, char* result, int base);
 
 
+// Create a new file at <filepath> with contents as <data>.
 void write_to_new_file(const char* filepath, const char* data);
 
 
+// Get <cont_byte_len> from "CONT:<cont_byte_len>:<f_content>"
 char* extract_byte_len(char* s);
 
 
+// Calculate the width of base 10 value (with 1 as starting index).
+// 123 has a width of 3.
+// 456,789 has a width of 6.
 int int_width(int x);
 
 
+// Return true if <filepath> has no content.
+// Return false otherwise.
 bool is_empty_file(const char* filepath);
 
 

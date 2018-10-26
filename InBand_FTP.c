@@ -8,9 +8,9 @@ const int CTS_OR_ERR_SIZE = 4;
 
 void append_char(char* s, char c)
 {
-  int len = strlen(s);
-  s[len] = c;
-  s[len+1] = '\0';
+  int len = strlen(s); // get the string length
+  s[len] = c; // place the character at the end of the string
+  s[len+1] = '\0'; // assigned the next place in the string to be a null terminator
 }
 
 //------------------------------------------------------------------------------------------
@@ -47,10 +47,10 @@ char* itoa(int value, char* result, int base)
 void write_to_new_file(const char* filepath, const char* data)
 {
 	FILE* fd = fopen(filepath, "w");
-	if (fd != NULL)
+	if (fd != NULL) // if able to open file for editing
 	{
-    fputs(data, fd);
-    fclose(fd);
+    fputs(data, fd); // insert string
+    fclose(fd); // close file
 	}
 }
 
@@ -58,15 +58,15 @@ void write_to_new_file(const char* filepath, const char* data)
 
 char* extract_byte_len(char* s)
 {
-	int start_i = 5;
-	int width = 10;
-	int max_i = start_i + width;
-	char* buf = (char*)malloc(width);
-  memset(buf, '\0', width);
-	for (int i = start_i; i <= max_i; i++)
+	int start_i = 5; // how many chars to skip at the beginning
+	int width = 10; // max width of base 10 value
+	int max_i = start_i + width; // maximum index value
+	char* buf = (char*)malloc(width); // allocate memory for buffer
+  memset(buf, '\0', width); // clear buffer
+  for (int i = start_i; i <= max_i; i++)
 	{
 		if(s[i] == ':')
-			break;
+			break; // stop when ':' is found
 		append_char(buf, s[i]);
 	}
 	// deallocate_message(buf);
@@ -77,7 +77,7 @@ char* extract_byte_len(char* s)
 
 int int_width(int x)
 {
-	return floor(log10(x)) + 1;
+	return floor(log10(x)) + 1; // calculate the width of base 10 integer
 }
 
 //------------------------------------------------------------------------------------------
@@ -86,19 +86,20 @@ bool is_empty_file(const char* filepath)
 {
 	int size;
   FILE* fd = fopen(filepath, "r");
-  if (fd != NULL)
+  if (fd != NULL) // if file can be opened for reading
   {
+  	// look for the end of the file
     fseek (fd, 0, SEEK_END);
     size = ftell(fd);
     fclose(fd);
 
-    if (0 == size)
+    if (0 == size) // if EOF is only content
     {
       return true;
     }
   }
-  fclose(fd);
-  return false;
+	fclose(fd);
+	return false;
 }
 
 //------------------------------------------------------------------------------------------
