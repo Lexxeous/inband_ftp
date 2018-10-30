@@ -2,8 +2,8 @@
 
 const int CLI_FILE_LEN = 80000;
 const int CLI_BUF_LEN = 512; // global variable to allocate different amounts of chars
-const int NO_CLI_BUF_OV = 5; // prevent overflow when appending filename
 const int P_MSG_LEN = 5;
+const int NO_CLI_BUF_OV = 4; // prevent overflow when appending <filename>
 const int CTS_OR_ERR_LEN = 4;
 const int FTP_CMD_LEN = 3; //
 
@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
   while(!closed)
   {
     bool valid_terminal_in = false; //assume the user terminal input is invalid
-    bool print_serv_resp = false;
+    bool print_serv_resp = true;
     bool chk0 = false;
     bool chk1 = false;
     bool chk2 = false;
@@ -167,7 +167,7 @@ int main(int argc, char* argv[])
         valid_terminal_in = true;
         memcpy(ftp_cmd, buff, FTP_CMD_LEN); // copy the first 3 characters of buff into "ftp_cmd" ; "get" or "put"
         printf("FTP Command: %s\n", ftp_cmd);
-        memcpy(f_name, buff + 4, CLI_BUF_LEN - NO_CLI_BUF_OV); // <filename>
+        memcpy(f_name, buff + 4, (CLI_BUF_LEN - NO_CLI_BUF_OV)); // <filename>
         printf("Filename: %s\n", f_name);
       }
     }
@@ -250,6 +250,7 @@ int main(int argc, char* argv[])
           append_char(cont_cmd, ':');
           strcat(cont_cmd, f_content);
           sendMessage(&info, cont_cmd);
+          fclose(cli_file); // close file on client-side
         }
       }
       else if (!strcmp(cts_or_err, "ERR:"))
@@ -268,8 +269,8 @@ int main(int argc, char* argv[])
         cont_byte_width = int_width(cont_byte_size); // width of the "cont_byte_size"
 
         int shift = P_MSG_LEN + cont_byte_width + 1; // calculate shift to <f_content>
-        memcpy(f_content, cont_cmd + shift, CLI_FILE_LEN - shift); // copy <f_content> to "f_content"
-        write_to_new_file(f_name, f_content); // create new file in "server_dir"
+        memcpy(f_content, cont_cmd + shift, (CLI_FILE_LEN - shift)); // copy <f_content> to "f_content"
+        write_to_new_file(f_name, f_content); // create new file in "server_dir" 
       }
       else if(strstr(serv_resp, "ERR:404"))
       {
@@ -277,17 +278,13 @@ int main(int argc, char* argv[])
       }
       else if(strstr(serv_resp, "ERR:000"))
       {
-        printf("ERR:000 %s does not exist in the remote server directory.\n", f_name);
+        printf("ERR:000 %s empty server file.\n", f_name);
       }
     }
     else
     {
       printf("ERR:503 bad sequence of commands, improper server response.\n");
     }
-
-    
-
-    fclose(cli_file); // close file on client-side
 
     // free all allocated variables
     deallocate_message(serv_resp);

@@ -98,7 +98,6 @@ bool is_empty_file(const char* filepath)
       return true;
     }
   }
-	fclose(fd);
 	return false;
 }
 
@@ -284,7 +283,7 @@ int run_server(int port)
 
 			// "quit", "STOR:<filename>", "RETV:<filename>"
 			user_cmd = receiveMessage(&con);
-			printf("user_cmd: %s\n", user_cmd);
+			printf("\nuser_cmd: %s\n", user_cmd);
 
 
 			// separate user commands
@@ -293,7 +292,7 @@ int run_server(int port)
 				memcpy(protocol_msg, user_cmd, P_MSG_SIZE); // protocol_msg = "PMSG:"
 				printf("protocol_msg: %s\n", protocol_msg); // PMSG:
 				memcpy(f_name, user_cmd + 5, SERV_BUF_SIZE - 5); // f_name = "<filename>"
-				printf("f_name: %s\n\n", f_name); // <filename>
+				printf("f_name: %s\n", f_name); // <filename>
 			}
 
 
@@ -340,6 +339,7 @@ int run_server(int port)
 						append_char(cont_cmd, ':');
 						strcat(cont_cmd, f_content);
 						sendMessage(&con, cont_cmd);
+						fclose(serv_file); // close file on server-side
 					}
 				}
 			}
@@ -354,6 +354,7 @@ int run_server(int port)
 				}
 				else // "f_name" already exists in "server_dir"
 				{
+					fclose(serv_file); // close the file on the server-file
 					sendMessage(&con, "ERR:409 conflict, file already exists in remote directory");
 				}
 			}
@@ -383,9 +384,6 @@ int run_server(int port)
 					printf("...failed STOR.\n\n");
 				}
 			}
-
-
-			fclose(serv_file);
 
 			// free all allocated variables
 			deallocate_message(cont_cmd);
